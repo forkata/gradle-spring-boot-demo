@@ -4,6 +4,7 @@ on: [push]
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -22,6 +23,7 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew build
   package:
+    name: Package
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -34,8 +36,27 @@ jobs:
         restore-keys: ${{ runner.os }}-gradle
     - name: Build WAR
       run: ./gradlew bootWar
-    - name: Package and upload WAR
+    - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:
-        name: Package
-        path: build/libs
+        name: package
+        path: build/libs/gradle-spring-boot-demo.war
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [build, package]
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v1
+      with:
+        name: package
+    - name: Deploy to ElasticBeanstalk
+      uses: einaregilsson/beanstalk-deploy@v6
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: gradle-spring-boot
+        environment_name: dev-env
+        version_label: gradle-spring-boot-${{ github.run_id }}
+        region: us-east-2
+        deployment_package: package/gradle-spring-boot-demo.war
